@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: henry-chung-com-tls
+spec:
+  secretName: henry-chung-com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  commonName: henry-chung.com
+  dnsNames:
+    - henry-chung.com
+    - www.henry-chung.com
