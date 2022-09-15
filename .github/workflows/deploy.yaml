@@ -1,0 +1,63 @@
+name: Deploy ComplexK8s
+on:
+  push:
+    branches:
+      - main
+
+env:
+  SHA: $(git rev-parse HEAD)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Test
+        run: |-
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker build -t henrychung/client-react-test -f ./client/Dockerfile.dev ./client
+          docker run -e CI=true henrychung/client-react-test npm test
+
+      - name: Set Service Key
+        uses: "google-github-actions/auth@v0"
+        with:
+          credentials_json: "${{ secrets.GKE_SA_KEY }}"
+
+      - name: Set Project
+        uses: google-github-actions/setup-gcloud@v0
+        with:
+          project_id: complex-multi-container-k8s
+
+      - name: Auth
+        run: |-
+          gcloud --quiet auth configure-docker
+
+      - name: Get Credentials
+        uses: google-github-actions/get-gke-credentials@v0
+        with:
+          cluster_name: complex-multi-containers-cluster
+          location: asia-southeast1-a
+
+      - name: Build
+        run: |-
+          docker build -t henrychung/multi-client-k8s:latest -t henrychung/multi-client-k8s:${{ env.SHA }} -f ./client/Dockerfile ./client
+          docker build -t henrychung/multi-server-k8s:latest -t henrychung/multi-server-k8s:${{ env.SHA }} -f ./server/Dockerfile ./server
+          docker build -t henrychung/multi-worker-k8s:latest -t henrychung/multi-worker-k8s:${{ env.SHA }} -f ./worker/Dockerfile ./worker
+
+      - name: Push
+        run: |-
+          docker push henrychung/multi-client-k8s:latest
+          docker push henrychung/multi-server-k8s:latest
+          docker push henrychung/multi-worker-k8s:latest
+
+          docker push henrychung/multi-client-k8s:${{ env.SHA }}
+          docker push henrychung/multi-server-k8s:${{ env.SHA }}
+          docker push henrychung/multi-worker-k8s:${{ env.SHA }}
+
+      - name: Apply
+        run: |-
+          kubectl apply -f k8s
+          kubectl set image deployments/server-deployment server=henrychung/multi-server-k8s:${{ env.SHA }}
+          kubectl set image deployments/client-deployment client=henrychung/multi-client-k8s:${{ env.SHA }}
+          kubectl set image deployments/worker-deployment worker=henrychung/multi-worker-k8s:${{ env.SHA }}
