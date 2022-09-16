@@ -9,7 +9,7 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <header className="App-header">
-          <h1>Fibonacci Cal (K8s)</h1>
+          <h1>Fibonacci Cal - Updated!</h1>
           <Link to='/'>Home</Link>
           <Link to='/otherpage'>Other page</Link>
         </header>
